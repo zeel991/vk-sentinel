@@ -4,17 +4,34 @@
 import { decide } from "./decide.js";
 
 const enc = new TextEncoder();
-let keyCache = null;
+const keyCache = new Map();
+// The rules describe a "32-byte random secret" shown as 64 hex chars. Whether the
+// platform keys HMAC with the hex text or the decoded bytes is undocumented, so
+// accept either and answer with whichever form verified the request.
+let keyForm = "text";
 
-async function hmacKey(secret) {
-  if (keyCache?.secret === secret) return keyCache.key;
-  const key = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  keyCache = { secret, key };
+function keyBytes(secret, form) {
+  const s = secret.trim();
+  if (form === "hex" && /^(0x)?[0-9a-fA-F]+$/.test(s) && s.replace(/^0x/, "").length % 2 === 0) {
+    const h = s.replace(/^0x/, "");
+    return Uint8Array.from(h.match(/../g), (b) => parseInt(b, 16));
+  }
+  return form === "hex" ? null : enc.encode(s);
+}
+
+async function hmacKey(secret, form) {
+  const id = `${form}:${secret}`;
+  if (keyCache.has(id)) return keyCache.get(id);
+  const raw = keyBytes(secret, form);
+  const key = raw && (await crypto.subtle.importKey("raw", raw, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]));
+  keyCache.set(id, key);
   return key;
 }
 
-async function sign(secret, bytes) {
-  const mac = await crypto.subtle.sign("HMAC", await hmacKey(secret), bytes);
+async function sign(secret, bytes, form = keyForm) {
+  const key = await hmacKey(secret, form);
+  if (!key) return "";
+  const mac = await crypto.subtle.sign("HMAC", key, bytes);
   return [...new Uint8Array(mac)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
@@ -84,10 +101,16 @@ export default {
 
     const raw = new Uint8Array(await request.arrayBuffer());
     const given = (request.headers.get("x-agent-games-signature") ?? "").trim().replace(/^sha256=/i, "").toLowerCase();
-    if (!safeEqual(given, await sign(secret, raw))) {
-      console.warn("bad signature");
+    let matched = null;
+    for (const form of ["text", "hex"]) {
+      if (safeEqual(given, await sign(secret, raw, form))) { matched = form; break; }
+    }
+    if (!matched) {
+      // Lengths only, never values: enough to tell a bad paste from a scheme mismatch.
+      console.warn(`bad signature (secret length ${secret.trim().length}, signature length ${given.length})`);
       return send(env, 401, { error: "invalid signature" });
     }
+    keyForm = matched;
 
     let task;
     try {
