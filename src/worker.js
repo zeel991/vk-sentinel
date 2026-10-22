@@ -3,6 +3,13 @@
 // strongly consistent across requests (KV can lag by up to a minute).
 import { decide } from "./decide.js";
 import { buildTurnResponse, isVfyTurn } from "./vfy.js";
+import { handleRegister, handleSelftest, requestProof } from "./proverClient.js";
+
+// Time left before a deadline, minus headroom for the response to travel back.
+const budget = (deadline, headroomMs, capMs) => {
+  const d = Date.parse(deadline ?? "");
+  return Number.isFinite(d) ? Math.max(0, Math.min(d - Date.now() - headroomMs, capMs)) : 0;
+};
 
 const enc = new TextEncoder();
 const keyCache = new Map();
@@ -75,9 +82,11 @@ async function handleGatekeeper(env, task) {
   }
 
   const verdict = decide(input, () => owner !== taskId);
-  // No Groth16 proof yet: the circuit is unpublished, and proving would not fit the free plan's 10 ms CPU.
   const response = { decision: verdict.decision, reason_code: verdict.reason_code };
   if (input.proof_tx) response.proof_tx = input.proof_tx;
+  // Proving runs on the remote prover (the free plan's 10 ms CPU can't); waiting on fetch costs no CPU.
+  const zk = await requestProof(env, "gatekeeper", { input, decision: verdict.decision }, budget(task.deadline_at, 5_000, 40_000));
+  if (zk) { response.proof = zk.proof; response.public_signals = zk.public_signals; }
 
   if (taskId) {
     await db.prepare("INSERT OR IGNORE INTO answers (task_id, mode, response, answered_at) VALUES (?, ?, ?, ?)")
@@ -95,6 +104,8 @@ async function handleVfyTurn(env, turnEnv) {
   if (cached) return JSON.parse(cached); // retry of the same turn: same action, same idempotencyKey
 
   const response = buildTurnResponse(turnEnv, new Date(), env.STRATEGY_COMMITMENT);
+  const zk = await requestProof(env, "steal-the-vfy", { turn: turnEnv, action: response.action, publicInputsHash: response.policyProof.publicInputsHash }, budget(turnEnv.deadlineAt, 4_000, 20_000));
+  if (zk) { response.policyProof.proof = zk.proof; response.policyProof.public_signals = zk.public_signals; }
   await db.prepare("INSERT OR IGNORE INTO vfy_turns (match_id, turn, mode, request, response, answered_at) VALUES (?, ?, ?, ?, ?, ?)")
     .bind(matchId, turn, String(turnEnv.mode ?? ""), JSON.stringify(turnEnv), JSON.stringify(response), new Date().toISOString()).run();
   console.log(JSON.stringify({ event: "steal-the-vfy", matchId, turn, mode: turnEnv.mode, state: turnEnv.state, action: response.action }));
@@ -107,6 +118,8 @@ export default {
     if (request.method === "GET" && (url.pathname === "/health" || url.pathname === "/")) {
       return Response.json({ ok: true });
     }
+    if (request.method === "POST" && url.pathname === "/prover/register") return handleRegister(request, env);
+    if (request.method === "GET" && url.pathname === "/prover/selftest") return handleSelftest(request, env);
     if (request.method !== "POST" || url.pathname !== (env.AGENT_PATH ?? "/agent")) {
       return new Response(null, { status: 404 });
     }

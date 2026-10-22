@@ -1,0 +1,15 @@
+[Unit]
+Description=Agent Games prover tunnel + Worker registration
+After=ag-prover.service network-online.target
+Wants=ag-prover.service
+
+[Service]
+WorkingDirectory=%h/ag-prover
+EnvironmentFile=%h/ag-prover/.env
+Environment=CLOUDFLARED=%h/.local/bin/cloudflared
+ExecStart=/usr/bin/node %h/ag-prover/tunnel.mjs
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

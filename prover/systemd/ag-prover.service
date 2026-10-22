@@ -1,0 +1,13 @@
+[Unit]
+Description=Agent Games Groth16 prover (localhost)
+After=network-online.target
+
+[Service]
+WorkingDirectory=%h/ag-prover
+EnvironmentFile=%h/ag-prover/.env
+ExecStart=/usr/bin/node %h/ag-prover/server.mjs
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=default.target

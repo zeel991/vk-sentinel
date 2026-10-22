@@ -22,3 +22,10 @@ CREATE TABLE IF NOT EXISTS vfy_turns (
   answered_at TEXT NOT NULL,
   PRIMARY KEY (match_id, turn)
 );
+
+CREATE TABLE IF NOT EXISTS prover (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  url TEXT NOT NULL,          -- current quick-tunnel URL of the prover box
+  circuits TEXT NOT NULL,     -- JSON array of circuit names it can prove
+  updated_at TEXT NOT NULL
+);

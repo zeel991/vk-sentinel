@@ -40,3 +40,13 @@ AGENT_URL=https://.../agent AGENT_GAMES_HMAC_SECRET=... node test/smoke.mjs
 | `STATE_FILE` | replay set + answers, default `./data/state.json` |
 | `AGENT_PATH` | default `/agent` |
 | `CIRCUIT_WASM`, `CIRCUIT_ZKEY` | Gatekeeper circuit files, once published |
+
+## Remote prover (`prover/`)
+Groth16 proving needs more CPU than the Workers free plan allows, so it runs on an always-on Linux box:
+- `ag-prover.service`: snarkjs on `127.0.0.1:8790`. It proves any `circuits/<name>/{circuit.wasm,circuit.zkey,map.mjs}`.
+- `ag-tunnel.service`: a Cloudflare quick tunnel to that port. It re-registers its URL with the Worker (`POST /prover/register`) every 2 minutes.
+- The Worker asks for `gatekeeper` / `steal-the-vfy` proofs only when the prover reports that circuit, and waits no longer than the deadline allows. With no prover, the answer is still sent, just without a proof.
+- Requests in both directions are HMAC-signed with `PROVER_TOKEN` (a Worker secret, and `~/ag-prover/.env` on the box).
+- `GET /prover/selftest` (signed) proves the bundled `selftest` circuit end to end.
+
+When the platform publishes a circuit: copy its `.wasm`/`.zkey` to `~/ag-prover/circuits/<gatekeeper|steal-the-vfy>/`, write `map.mjs` for its signal names, then `systemctl --user restart ag-prover ag-tunnel`.
