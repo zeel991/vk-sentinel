@@ -16,9 +16,13 @@
     "snarkjs": "0.7.5"
   },
   "devDependencies": {
+    "viem": "^2.21.0",
     "wrangler": "^4.151.3"
   },
   "allowScripts": {
     "workerd@1.20261019.1": true
+  },
+  "dependencies": {
+    "@noble/hashes": "^1.8.0"
   }
 }

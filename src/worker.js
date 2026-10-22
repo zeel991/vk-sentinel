@@ -2,6 +2,7 @@
 // Same policy as src/server.js; state lives in D1 so replay checks are
 // strongly consistent across requests (KV can lag by up to a minute).
 import { decide } from "./decide.js";
+import { buildTurnResponse, isVfyTurn } from "./vfy.js";
 
 const enc = new TextEncoder();
 const keyCache = new Map();
@@ -86,6 +87,20 @@ async function handleGatekeeper(env, task) {
   return response;
 }
 
+async function handleVfyTurn(env, turnEnv) {
+  const db = env.DB;
+  const matchId = String(turnEnv.matchId);
+  const turn = Number(turnEnv.turn);
+  const cached = await db.prepare("SELECT response FROM vfy_turns WHERE match_id = ? AND turn = ?").bind(matchId, turn).first("response");
+  if (cached) return JSON.parse(cached); // retry of the same turn: same action, same idempotencyKey
+
+  const response = buildTurnResponse(turnEnv, new Date(), env.STRATEGY_COMMITMENT);
+  await db.prepare("INSERT OR IGNORE INTO vfy_turns (match_id, turn, mode, request, response, answered_at) VALUES (?, ?, ?, ?, ?, ?)")
+    .bind(matchId, turn, String(turnEnv.mode ?? ""), JSON.stringify(turnEnv), JSON.stringify(response), new Date().toISOString()).run();
+  console.log(JSON.stringify({ event: "steal-the-vfy", matchId, turn, mode: turnEnv.mode, state: turnEnv.state, action: response.action }));
+  return response;
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -122,10 +137,16 @@ export default {
     try {
       if (task.type === "agent-games.preflight.v1") return send(env, 200, { ok: true, protocolVersion: "v1" });
       if (task.type === "agent-games.proof-gatekeeper.v1") return send(env, 200, await handleGatekeeper(env, task));
-      console.warn("unknown task type", task.type);
+      if (isVfyTurn(task)) return send(env, 200, await handleVfyTurn(env, task));
+      // Log the shape (keys only) of anything unrecognised so new envelope types can be added quickly.
+      console.warn("unknown task type", task.type, JSON.stringify(Object.keys(task)));
       return send(env, 400, { error: "unsupported task type" });
     } catch (err) {
       console.error("handler error:", err?.message);
+      if (isVfyTurn(task)) {
+        // Still answer with a schema-valid move rather than let the turn time out.
+        return send(env, 200, buildTurnResponse(task, new Date(), env.STRATEGY_COMMITMENT));
+      }
       // Fail closed: a REJECT costs at most -3, an error response earns nothing.
       return send(env, 200, { decision: "REJECT", reason_code: "PROOF_INVALID", proof_tx: task?.input?.proof_tx });
     }
