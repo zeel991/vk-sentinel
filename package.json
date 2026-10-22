@@ -1,0 +1,24 @@
+{
+  "name": "agent-games-gatekeeper",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Proof Gatekeeper agent for zkVerify Agent Games 2026",
+  "main": "src/server.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "optionalDependencies": {
+    "snarkjs": "0.7.5"
+  },
+  "devDependencies": {
+    "wrangler": "^4.151.3"
+  },
+  "allowScripts": {
+    "workerd@1.20261019.1": true
+  }
+}

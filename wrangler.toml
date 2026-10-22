@@ -1,0 +1,12 @@
+name = "agentgames-gatekeeper"
+main = "src/worker.js"
+compatibility_date = "2026-10-01"
+workers_dev = true
+
+[observability]
+enabled = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "gatekeeper"
+database_id = "0ff89ed0-83d4-4c31-9444-b9ad2f0dac38"
