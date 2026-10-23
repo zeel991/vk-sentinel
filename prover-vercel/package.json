@@ -1,0 +1,7 @@
+{
+  "name": "vk-sentinel-prover",
+  "private": true,
+  "type": "module",
+  "engines": { "node": "22.x" },
+  "dependencies": { "snarkjs": "0.7.5" }
+}

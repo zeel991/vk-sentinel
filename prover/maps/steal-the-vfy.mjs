@@ -1,9 +1,10 @@
 // Steal the VFY circuit (VfyPolicyProof) input mapping.
-// commitment = Poseidon(strategyParams[8], salt); strategy.json beside this file holds
-// the params, salt and commitment as decimal strings (written by scripts/vfy-commit.mjs).
+// commitment = Poseidon(strategyParams[8], salt). The params, salt and commitment come as
+// decimal strings from scripts/vfy-commit.mjs: the STRATEGY_JSON env var when set
+// (serverless), else strategy.json beside this file.
 import { readFileSync } from "node:fs";
 
-const strategy = JSON.parse(readFileSync(new URL("./strategy.json", import.meta.url), "utf8"));
+const strategy = JSON.parse(process.env.STRATEGY_JSON ?? readFileSync(new URL("./strategy.json", import.meta.url), "utf8"));
 const ACTION = { HOLD: "0", FORTIFY: "1", EXTRACT: "2" };
 const VERSION = { "v1-draft": "1", v1: "1" };
 

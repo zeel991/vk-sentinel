@@ -58,15 +58,17 @@ async function send(env, status, obj) {
   });
 }
 
-async function handleGatekeeper(env, task) {
+async function handleGatekeeper(env, task, colo) {
   const db = env.DB;
   const taskId = String(task.task_id ?? "");
+  const t = [Date.now()];
 
   if (taskId) {
     const cached = await db.prepare("SELECT response FROM answers WHERE task_id = ?").bind(taskId).first("response");
     if (cached) return JSON.parse(cached); // platform retry: answer exactly the same
   }
 
+  t.push(Date.now());
   const input = task.input ?? {};
   const proofTx = typeof input.proof_tx === "string" ? input.proof_tx.trim().toLowerCase() : "";
   // Practice and scored rounds keep separate replay sets.
@@ -81,6 +83,7 @@ async function handleGatekeeper(env, task) {
     owner = await db.prepare("SELECT task_id FROM proof_refs WHERE scope = ? AND proof_tx = ?").bind(scope, proofTx).first("task_id");
   }
 
+  t.push(Date.now());
   let verdict = decide(input, () => owner !== taskId);
   // Proving runs on the remote prover (the free plan's 10 ms CPU can't); waiting on fetch costs no CPU.
   // Replays carry no proof to submit, and the circuit has no notion of reuse, so skip them.
@@ -95,6 +98,7 @@ async function handleGatekeeper(env, task) {
       verdict = { decision: flipped, reason_code: flipped === "APPROVE" ? "VALID_PROOF" : "PUBLIC_INPUT_MISMATCH" };
     }
   }
+  t.push(Date.now());
   const response = { decision: verdict.decision, reason_code: verdict.reason_code };
   if (input.proof_tx) response.proof_tx = input.proof_tx;
   if (zk) { response.proof = zk.proof; response.public_signals = zk.public_signals; }
@@ -103,7 +107,10 @@ async function handleGatekeeper(env, task) {
     await db.prepare("INSERT OR IGNORE INTO answers (task_id, mode, response, answered_at) VALUES (?, ?, ?, ?)")
       .bind(taskId, scope, JSON.stringify(response), new Date().toISOString()).run();
   }
-  console.log(JSON.stringify({ task_id: taskId, mode: task.mode, ...verdict }));
+  t.push(Date.now());
+  // Per-stage milliseconds: retry lookup, replay claim, prove (incl. tunnel), save; prover_internal is the prover's own time.
+  const ms = t.slice(1).map((x, i) => x - t[i]);
+  console.log(JSON.stringify({ task_id: taskId, mode: task.mode, ...verdict, colo, ms: { lookup: ms[0], claim: ms[1], prove: ms[2], save: ms[3], prover_internal: zk?.ms ?? null } }));
   return response;
 }
 
@@ -160,7 +167,7 @@ export default {
 
     try {
       if (task.type === "agent-games.preflight.v1") return send(env, 200, { ok: true, protocolVersion: "v1" });
-      if (task.type === "agent-games.proof-gatekeeper.v1") return send(env, 200, await handleGatekeeper(env, task));
+      if (task.type === "agent-games.proof-gatekeeper.v1") return send(env, 200, await handleGatekeeper(env, task, request.cf?.colo));
       if (isVfyTurn(task)) return send(env, 200, await handleVfyTurn(env, task));
       // Log the shape (keys only) of anything unrecognised so new envelope types can be added quickly.
       console.warn("unknown task type", task.type, JSON.stringify(Object.keys(task)));

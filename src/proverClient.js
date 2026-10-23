@@ -31,6 +31,8 @@ export async function handleRegister(request, env) {
 
 async function currentProver(env) {
   if (!env.PROVER_TOKEN) return null;
+  // A fixed prover (prover-vercel/) takes precedence over a self-registered tunnel.
+  if (env.PROVER_URL) return { url: env.PROVER_URL, circuits: ["gatekeeper", "steal-the-vfy"] };
   const row = await env.DB.prepare("SELECT url, circuits, updated_at FROM prover WHERE id = 1").first();
   if (!row) return null;
   // Registrations refresh every 2 minutes; a stale one means the box or tunnel is down.
@@ -77,7 +79,14 @@ export async function handleSelftest(request, env) {
   }
   const t0 = Date.now();
   const prover = await currentProver(env);
-  const result = await requestProof(env, "selftest", { a: 3, b: 11 }, 20_000);
+  // A fixed sample Gatekeeper task: valid condition, so the circuit proves APPROVE.
+  const vk = "0x6b79c6012a6d8651f3e13bc4d2a20370280ab49700c90c5316d4168bfbad77b0";
+  const result = await requestProof(env, "gatekeeper", {
+    input: { registered_vk: vk, proof_vk: vk, minimum: "1000", public_balance: "1460", expiry_block: 8430000, current_block: 8420000,
+      recipient: "0xabcdef1234567890abcdef1234567890abcdef12", condition_recipient: "0xabcdef1234567890abcdef1234567890abcdef12",
+      amount: "500", max_transfer: "1000" },
+    taskId: "selftest_00000000-0000-4000-8000-000000000000", decision: "APPROVE",
+  }, 20_000);
   return Response.json({
     prover: prover ? { circuits: prover.circuits } : null,
     ok: Boolean(result?.proof),
