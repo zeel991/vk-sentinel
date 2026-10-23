@@ -38,9 +38,10 @@ test("publicInputsHash matches the build guide's viem reference", () => {
   }
 });
 
-test("strategy: extract the cap, never more than the opponent has, hold at zero", () => {
+test("strategy: extract the cap whenever the opponent has anything, hold at zero", () => {
   assert.deepEqual(chooseAction({ opponentBalance: "105" }), { type: "EXTRACT", amount: 10 });
-  assert.deepEqual(chooseAction({ opponentBalance: "4" }), { type: "EXTRACT", amount: 4 });
+  // the policy circuit only proves EXTRACT 10 here, not EXTRACT 4
+  assert.deepEqual(chooseAction({ opponentBalance: "4" }), { type: "EXTRACT", amount: 10 });
   assert.deepEqual(chooseAction({ opponentBalance: "0" }), { type: "HOLD" });
 });
 

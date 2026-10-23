@@ -26,11 +26,13 @@ const toBig = (v) => {
   throw new Error(`not an integer: ${v}`);
 };
 
+// Matches the committed strategyParams [10, 0, ...] in the platform's VfyPolicyProof circuit:
+// it proves EXTRACT 10 whenever the opponent has any balance (the resolver caps the take at
+// what they have) and HOLD at zero. EXTRACT of a smaller amount cannot be proved.
 export function chooseAction(state, policy = POLICY) {
   const opponent = toBig(state?.opponentBalance ?? 0);
   if (opponent <= 0n) return { type: "HOLD" };
-  const amount = Number(opponent < BigInt(policy.extractCap) ? opponent : BigInt(policy.extractCap));
-  return { type: "EXTRACT", amount };
+  return { type: "EXTRACT", amount: policy.extractCap };
 }
 
 function word(v) {

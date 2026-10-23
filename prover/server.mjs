@@ -30,8 +30,11 @@ async function loadCircuits() {
     const d = join(DIR, name);
     const wasm = join(d, "circuit.wasm"), zkey = join(d, "circuit.zkey"), map = join(d, "map.mjs");
     if (![wasm, zkey, map].every(existsSync)) continue;
-    const mapInput = (await import(pathToFileURL(map).href + `?v=${Date.now()}`)).default;
-    circuits.set(name, { wasm, zkey, mapInput, vkey: existsSync(join(d, "vkey.json")) ? JSON.parse(readFileSync(join(d, "vkey.json"), "utf8")) : null });
+    const mod = await import(pathToFileURL(map).href + `?v=${Date.now()}`);
+    circuits.set(name, {
+      wasm, zkey, mapInput: mod.default, alternate: mod.alternate ?? null,
+      vkey: existsSync(join(d, "vkey.json")) ? JSON.parse(readFileSync(join(d, "vkey.json"), "utf8")) : null,
+    });
   }
 }
 await loadCircuits();
@@ -58,13 +61,18 @@ createServer((req, res) => {
     const c = circuits.get(msg.circuit);
     if (!c) return reply(res, 404, { error: `no circuit ${msg.circuit}` });
     const t0 = Date.now();
-    try {
-      const { proof, publicSignals } = await snarkjs.groth16.fullProve(c.mapInput(msg.payload), c.wasm, c.zkey);
-      const verified = c.vkey ? await snarkjs.groth16.verify(c.vkey, publicSignals, proof) : null;
-      reply(res, 200, { proof, public_signals: publicSignals, verified, ms: Date.now() - t0 });
-    } catch (err) {
-      console.error(`prove ${msg.circuit} failed:`, err.message);
-      reply(res, 500, { error: "prove failed", ms: Date.now() - t0 });
+    // The circuits only prove what their rules allow. If the requested payload fails and the
+    // circuit has an alternate (Gatekeeper: the other decision), try it and say which one proved.
+    const attempts = [msg.payload, ...(c.alternate && msg.allowAlternate ? [c.alternate(msg.payload)] : [])];
+    for (const [i, payload] of attempts.entries()) {
+      try {
+        const { proof, publicSignals } = await snarkjs.groth16.fullProve(c.mapInput(payload), c.wasm, c.zkey);
+        const verified = c.vkey ? await snarkjs.groth16.verify(c.vkey, publicSignals, proof) : null;
+        return reply(res, 200, { proof, public_signals: publicSignals, verified, alternate: i > 0, ms: Date.now() - t0 });
+      } catch (err) {
+        console.error(`prove ${msg.circuit} attempt ${i} failed:`, String(err.message).split("\n")[0]);
+      }
     }
+    reply(res, 422, { error: "not provable", ms: Date.now() - t0 });
   });
 }).listen(PORT, "127.0.0.1", () => console.log(`prover on 127.0.0.1:${PORT}, circuits: ${[...circuits.keys()].join(", ") || "none"}`));

@@ -16,6 +16,7 @@
     "snarkjs": "0.7.5"
   },
   "devDependencies": {
+    "circomlibjs": "^0.1.7",
     "viem": "^2.21.0",
     "wrangler": "^4.151.3"
   },

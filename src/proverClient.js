@@ -43,11 +43,11 @@ async function currentProver(env) {
  * Never throws and never waits longer than budgetMs, so a slow or missing prover
  * costs the proof, not the answer.
  */
-export async function requestProof(env, circuit, payload, budgetMs) {
+export async function requestProof(env, circuit, payload, budgetMs, { allowAlternate = false } = {}) {
   if (budgetMs < 500) return null;
   const prover = await currentProver(env).catch(() => null);
   if (!prover || !prover.circuits.includes(circuit)) return null;
-  const body = enc.encode(JSON.stringify({ circuit, payload }));
+  const body = enc.encode(JSON.stringify({ circuit, payload, allowAlternate }));
   try {
     const r = await fetch(`${prover.url}/prove`, {
       method: "POST",
@@ -59,7 +59,7 @@ export async function requestProof(env, circuit, payload, budgetMs) {
     if (!sameHex(r.headers.get("x-prover-signature") ?? "", await hmacHex(env.PROVER_TOKEN, raw))) return null;
     const out = JSON.parse(new TextDecoder().decode(raw));
     if (!r.ok || !out.proof) { console.warn("prover error", r.status, out.error); return null; }
-    return { proof: out.proof, public_signals: out.public_signals, verified: out.verified, ms: out.ms };
+    return { proof: out.proof, public_signals: out.public_signals, verified: out.verified, alternate: Boolean(out.alternate), ms: out.ms };
   } catch (err) {
     console.warn("prover unreachable:", err?.name ?? err);
     return null;

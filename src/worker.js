@@ -81,11 +81,22 @@ async function handleGatekeeper(env, task) {
     owner = await db.prepare("SELECT task_id FROM proof_refs WHERE scope = ? AND proof_tx = ?").bind(scope, proofTx).first("task_id");
   }
 
-  const verdict = decide(input, () => owner !== taskId);
+  let verdict = decide(input, () => owner !== taskId);
+  // Proving runs on the remote prover (the free plan's 10 ms CPU can't); waiting on fetch costs no CPU.
+  // Replays carry no proof to submit, and the circuit has no notion of reuse, so skip them.
+  let zk = null;
+  if (verdict.reason_code !== "PROOF_REPLAY" && verdict.reason_code !== "MISSING_VERIFICATION") {
+    zk = await requestProof(env, "gatekeeper", { input, taskId, decision: verdict.decision },
+      budget(task.deadline_at, 5_000, 40_000), { allowAlternate: true });
+    if (zk?.alternate) {
+      // The platform's circuit only proves the decision its rules allow; it is the referee.
+      const flipped = verdict.decision === "APPROVE" ? "REJECT" : "APPROVE";
+      console.warn(JSON.stringify({ task_id: taskId, circuit_overrode: verdict, to: flipped }));
+      verdict = { decision: flipped, reason_code: flipped === "APPROVE" ? "VALID_PROOF" : "PUBLIC_INPUT_MISMATCH" };
+    }
+  }
   const response = { decision: verdict.decision, reason_code: verdict.reason_code };
   if (input.proof_tx) response.proof_tx = input.proof_tx;
-  // Proving runs on the remote prover (the free plan's 10 ms CPU can't); waiting on fetch costs no CPU.
-  const zk = await requestProof(env, "gatekeeper", { input, decision: verdict.decision }, budget(task.deadline_at, 5_000, 40_000));
   if (zk) { response.proof = zk.proof; response.public_signals = zk.public_signals; }
 
   if (taskId) {

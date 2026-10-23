@@ -12,5 +12,5 @@ database_name = "gatekeeper"
 database_id = "0ff89ed0-83d4-4c31-9444-b9ad2f0dac38"
 
 [vars]
-# Public value registered on the dashboard (scripts/commit.mjs). Practice turns omit it from the envelope.
-STRATEGY_COMMITMENT = "0xef8d4b417661c134a305cb7e834973bddafe3b1b6daca8cb6d2ad32880262f90"
+# Poseidon(strategyParams, salt) registered on the dashboard (scripts/vfy-commit.mjs). Practice turns omit it from the envelope.
+STRATEGY_COMMITMENT = "0x22493306606ed696f1f1a4945e514b1245312964990f2a557c948c5b49ba850c"
