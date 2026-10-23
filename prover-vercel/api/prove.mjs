@@ -1,7 +1,7 @@
 // POST /api/prove  { circuit, payload, allowAlternate }  signed with PROVER_TOKEN (x-prover-signature).
 // Same contract as prover/server.mjs, so the Worker talks to either.
-import * as snarkjs from "snarkjs";
 import { artifacts, available, sign, signatureOk } from "../lib/circuits.mjs";
+import { prove } from "../lib/prove.mjs";
 import mapGatekeeper, { alternate as altGatekeeper } from "../lib/maps/gatekeeper.mjs";
 import mapVfy from "../lib/maps/steal-the-vfy.mjs";
 
@@ -31,15 +31,14 @@ export default async function handler(req, res) {
   const entry = MAPS[msg.circuit];
   if (!entry || !available().includes(msg.circuit)) return reply(res, 404, { error: `no circuit ${msg.circuit}` });
 
-  const { wasm, zkey, vkey } = artifacts(msg.circuit);
+  const art = artifacts(msg.circuit);
   const t0 = Date.now();
   // Circuits only prove what their rules allow; Gatekeeper may retry with the other decision.
   const attempts = [msg.payload, ...(entry.alternate && msg.allowAlternate ? [entry.alternate(msg.payload)] : [])];
   for (const [i, payload] of attempts.entries()) {
     try {
-      const { proof, publicSignals } = await snarkjs.groth16.fullProve(entry.map(payload), wasm, zkey);
-      const verified = await snarkjs.groth16.verify(vkey, publicSignals, proof);
-      return reply(res, 200, { proof, public_signals: publicSignals, verified, alternate: i > 0, ms: Date.now() - t0 });
+      const { proof, publicSignals, engine, timing } = await prove(entry.map(payload), art);
+      return reply(res, 200, { proof, public_signals: publicSignals, verified: engine === "snarkjs" ? true : null, alternate: i > 0, engine, timing, ms: Date.now() - t0 });
     } catch (err) {
       console.error(`prove ${msg.circuit} attempt ${i} failed:`, String(err?.message).split("\n")[0]);
     }

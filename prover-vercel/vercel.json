@@ -1,7 +1,7 @@
 {
   "regions": ["sin1"],
   "functions": {
-    "api/prove.mjs": { "maxDuration": 10, "memory": 1024, "includeFiles": "{circuits/**,lib/**}" },
+    "api/prove.mjs": { "maxDuration": 10, "memory": 1024, "includeFiles": "{circuits/**,lib/**,bin/**}" },
     "api/health.mjs": { "includeFiles": "circuits/**" }
   }
 }

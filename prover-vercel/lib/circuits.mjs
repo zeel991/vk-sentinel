@@ -20,6 +20,7 @@ export function artifacts(name) {
     cache.set(name, {
       wasm: new Uint8Array(readFileSync(join(d, "circuit.wasm"))),
       zkey: new Uint8Array(readFileSync(join(d, "circuit.zkey"))),
+      zkeyPath: join(d, "circuit.zkey"),
       vkey: JSON.parse(readFileSync(join(d, "vkey.json"), "utf8")),
     });
   }
