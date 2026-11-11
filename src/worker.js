@@ -5,6 +5,18 @@ import { decide } from "./decide.js";
 import { buildTurnResponse, isVfyTurn } from "./vfy.js";
 import { handleRegister, handleSelftest, proverStatus, requestProof } from "./proverClient.js";
 
+const DEADLINE_GRACE_MS = 2 * 60_000; // past the stated deadline
+const MAX_AGE_MS = 15 * 60_000;       // since issued, for envelopes without a deadline (preflight)
+
+/** Returns why a signed request is too old to act on, or null. Missing timestamps are not stale. */
+export function staleness(task, now = Date.now()) {
+  const deadline = Date.parse(task?.deadline_at ?? task?.deadlineAt ?? "");
+  if (Number.isFinite(deadline) && now > deadline + DEADLINE_GRACE_MS) return { past_deadline_ms: now - deadline };
+  const issued = Date.parse(task?.issued_at ?? task?.issuedAt ?? "");
+  if (Number.isFinite(issued) && now > issued + MAX_AGE_MS) return { age_ms: now - issued };
+  return null;
+}
+
 // Time left before a deadline, minus headroom for the response to travel back.
 const budget = (deadline, headroomMs, capMs) => {
   const d = Date.parse(deadline ?? "");
@@ -164,6 +176,15 @@ export default {
       task = JSON.parse(new TextDecoder().decode(raw));
     } catch {
       return send(env, 400, { error: "invalid json" });
+    }
+
+    // Build guide: "task signature and timestamp are valid before any work begins"; VFY: "reject
+    // expired nonces". A correctly signed request replayed long after it was issued is refused.
+    // The grace period leaves room for the platform's own retries after a network failure.
+    const stale = staleness(task);
+    if (stale) {
+      console.warn(JSON.stringify({ refused: "stale request", type: task.type ?? task.eventId, ...stale }));
+      return send(env, 410, { error: "request expired" });
     }
 
     try {

@@ -38,6 +38,7 @@ const checks = [
   ["replay -> PROOF_REPLAY", async () => assert.equal((await post(task("b", valid))).json.reason_code, "PROOF_REPLAY")],
   ["vk swap -> VK_SUBSTITUTION", async () => assert.equal((await post(task("c", { ...valid, proof_vk: "0x13aa", proof_tx: `0xvk${run}` }))).json.reason_code, "VK_SUBSTITUTION")],
   ["low balance -> THRESHOLD_MISMATCH", async () => assert.equal((await post(task("d", { ...valid, public_balance: "1", proof_tx: `0xth${run}` }))).json.reason_code, "THRESHOLD_MISMATCH")],
+  ["replayed long after deadline -> 410", async () => assert.equal((await post({ ...task("e", { ...valid, proof_tx: `0xold${run}` }), deadline_at: new Date(Date.now() - 10 * 60_000).toISOString() })).status, 410)],
 ];
 
 let failed = 0;
