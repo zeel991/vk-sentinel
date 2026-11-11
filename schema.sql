@@ -29,3 +29,11 @@ CREATE TABLE IF NOT EXISTS prover (
   circuits TEXT NOT NULL,     -- JSON array of circuit names it can prove
   updated_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS prover_health (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  ok INTEGER NOT NULL,        -- 1 if the last scheduled sample proof succeeded
+  checked_at TEXT NOT NULL,
+  last_ok_at TEXT,
+  ms INTEGER
+);

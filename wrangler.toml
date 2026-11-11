@@ -13,6 +13,8 @@ database_id = "0ff89ed0-83d4-4c31-9444-b9ad2f0dac38"
 
 [vars]
 # Poseidon(strategyParams, salt) registered on the dashboard (scripts/vfy-commit.mjs). Practice turns omit it from the envelope.
+# Circuit version registered with the commitment; replies must use the same string.
+CIRCUIT_VERSION = "v1"
 STRATEGY_COMMITMENT = "0x22493306606ed696f1f1a4945e514b1245312964990f2a557c948c5b49ba850c"
 # Fixed serverless prover (prover-vercel/). Unset to fall back to a self-registered tunnel.
 PROVER_URL = "https://vk-sentinel-prover.vercel.app/api"

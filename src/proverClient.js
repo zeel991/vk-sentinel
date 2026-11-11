@@ -68,6 +68,37 @@ export async function requestProof(env, circuit, payload, budgetMs, { allowAlter
   }
 }
 
+// A fixed sample Gatekeeper task: valid condition, so the circuit proves APPROVE.
+function sampleProof(env) {
+  const vk = "0x6b79c6012a6d8651f3e13bc4d2a20370280ab49700c90c5316d4168bfbad77b0";
+  return requestProof(env, "gatekeeper", {
+    input: { registered_vk: vk, proof_vk: vk, minimum: "1000", public_balance: "1460", expiry_block: 8430000, current_block: 8420000,
+      recipient: "0xabcdef1234567890abcdef1234567890abcdef12", condition_recipient: "0xabcdef1234567890abcdef1234567890abcdef12",
+      amount: "500", max_transfer: "1000" },
+    taskId: "selftest_00000000-0000-4000-8000-000000000000", decision: "APPROVE",
+  }, 20_000);
+}
+
+/**
+ * Records a sample-proof outcome so GET /health shows whether proofs are working.
+ * Called by /prover/selftest, which an always-on box (prover/check-timer) hits every
+ * 5 minutes: that keeps the serverless prover in use (an idle Vercel deployment once
+ * stopped serving its functions for ~2 weeks unnoticed).
+ */
+async function recordProverCheck(env, result, t0) {
+  const ok = Boolean(result?.proof);
+  const now = new Date().toISOString();
+  await env.DB.prepare(`INSERT INTO prover_health (id, ok, checked_at, last_ok_at, ms) VALUES (1, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET ok = excluded.ok, checked_at = excluded.checked_at, ms = excluded.ms,
+        last_ok_at = COALESCE(excluded.last_ok_at, prover_health.last_ok_at)`)
+    .bind(ok ? 1 : 0, now, ok ? now : null, Date.now() - t0).run();
+  if (!ok) console.error(JSON.stringify({ prover_check: "FAILED", ms: Date.now() - t0 }));
+}
+
+export async function proverStatus(env) {
+  return env.DB.prepare("SELECT ok, checked_at, last_ok_at, ms FROM prover_health WHERE id = 1").first().catch(() => null);
+}
+
 /** GET /prover/selftest, signed with PROVER_TOKEN over the query string: end-to-end pipeline check. */
 export async function handleSelftest(request, env) {
   if (!env.PROVER_TOKEN) return new Response(null, { status: 404 });
@@ -79,14 +110,8 @@ export async function handleSelftest(request, env) {
   }
   const t0 = Date.now();
   const prover = await currentProver(env);
-  // A fixed sample Gatekeeper task: valid condition, so the circuit proves APPROVE.
-  const vk = "0x6b79c6012a6d8651f3e13bc4d2a20370280ab49700c90c5316d4168bfbad77b0";
-  const result = await requestProof(env, "gatekeeper", {
-    input: { registered_vk: vk, proof_vk: vk, minimum: "1000", public_balance: "1460", expiry_block: 8430000, current_block: 8420000,
-      recipient: "0xabcdef1234567890abcdef1234567890abcdef12", condition_recipient: "0xabcdef1234567890abcdef1234567890abcdef12",
-      amount: "500", max_transfer: "1000" },
-    taskId: "selftest_00000000-0000-4000-8000-000000000000", decision: "APPROVE",
-  }, 20_000);
+  const result = await sampleProof(env).catch(() => null);
+  await recordProverCheck(env, result, t0).catch((err) => console.error("prover_health write failed:", err?.message));
   return Response.json({
     prover: prover ? { circuits: prover.circuits } : null,
     ok: Boolean(result?.proof),

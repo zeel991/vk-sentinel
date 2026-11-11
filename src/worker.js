@@ -3,7 +3,7 @@
 // strongly consistent across requests (KV can lag by up to a minute).
 import { decide } from "./decide.js";
 import { buildTurnResponse, isVfyTurn } from "./vfy.js";
-import { handleRegister, handleSelftest, requestProof } from "./proverClient.js";
+import { handleRegister, handleSelftest, proverStatus, requestProof } from "./proverClient.js";
 
 // Time left before a deadline, minus headroom for the response to travel back.
 const budget = (deadline, headroomMs, capMs) => {
@@ -121,7 +121,7 @@ async function handleVfyTurn(env, turnEnv) {
   const cached = await db.prepare("SELECT response FROM vfy_turns WHERE match_id = ? AND turn = ?").bind(matchId, turn).first("response");
   if (cached) return JSON.parse(cached); // retry of the same turn: same action, same idempotencyKey
 
-  const response = buildTurnResponse(turnEnv, new Date(), env.STRATEGY_COMMITMENT);
+  const response = buildTurnResponse(turnEnv, new Date(), env.STRATEGY_COMMITMENT, env.CIRCUIT_VERSION);
   const zk = await requestProof(env, "steal-the-vfy", { turn: turnEnv, action: response.action, publicInputsHash: response.policyProof.publicInputsHash }, budget(turnEnv.deadlineAt, 4_000, 20_000));
   if (zk) { response.policyProof.proof = zk.proof; response.policyProof.public_signals = zk.public_signals; }
   await db.prepare("INSERT OR IGNORE INTO vfy_turns (match_id, turn, mode, request, response, answered_at) VALUES (?, ?, ?, ?, ?, ?)")
@@ -134,7 +134,8 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (request.method === "GET" && (url.pathname === "/health" || url.pathname === "/")) {
-      return Response.json({ ok: true });
+      const p = await proverStatus(env);
+      return Response.json({ ok: true, prover: p ? { ok: p.ok === 1, checked_at: p.checked_at, last_ok_at: p.last_ok_at, ms: p.ms } : null });
     }
     if (request.method === "POST" && url.pathname === "/prover/register") return handleRegister(request, env);
     if (request.method === "GET" && url.pathname === "/prover/selftest") return handleSelftest(request, env);
@@ -176,7 +177,7 @@ export default {
       console.error("handler error:", err?.message);
       if (isVfyTurn(task)) {
         // Still answer with a schema-valid move rather than let the turn time out.
-        return send(env, 200, buildTurnResponse(task, new Date(), env.STRATEGY_COMMITMENT));
+        return send(env, 200, buildTurnResponse(task, new Date(), env.STRATEGY_COMMITMENT, env.CIRCUIT_VERSION));
       }
       // Fail closed: a REJECT costs at most -3, an error response earns nothing.
       return send(env, 200, { decision: "REJECT", reason_code: "PROOF_INVALID", proof_tx: task?.input?.proof_tx });

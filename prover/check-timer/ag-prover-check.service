@@ -1,0 +1,7 @@
+[Unit]
+Description=Agent Games: sample proof through the Worker (prover health check)
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/ag-prover-check

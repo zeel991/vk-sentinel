@@ -21,7 +21,7 @@ const commitment = BigInt(poseidon.F.toString(poseidon([...PARAMS, salt])));
 writeFileSync(outFile, JSON.stringify({ params: PARAMS.map(String), salt: salt.toString(), commitment: commitment.toString() }) + "\n", { mode: 0o600 });
 console.log(JSON.stringify({
   commitmentHash: "0x" + commitment.toString(16).padStart(64, "0"),
-  circuitVersion: "v1-draft",
+  circuitVersion: "v1",
   policyVersion: "max-extract-v2",
   strategyFile: outFile,
 }, null, 2));

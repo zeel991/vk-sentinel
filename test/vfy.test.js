@@ -31,7 +31,7 @@ test("publicInputsHash matches the build guide's viem reference", () => {
     const ours = publicInputsHash({
       commitment: envelope.strategyCommitment.hash, matchId: envelope.matchId, turn: 3,
       selfBalance: "95", opponentBalance: "105",
-      action: action === "EXTRACT" ? { type: action, amount } : { type: action }, circuitVersion: "v1-draft",
+      action: action === "EXTRACT" ? { type: action, amount } : { type: action }, circuitVersion: "v1",
     });
     const ref = referenceHash({ commitment: envelope.strategyCommitment.hash, matchId: envelope.matchId, turn: 3, selfBalance: "95", opponentBalance: "105", action, amount });
     assert.equal(ours, ref, `${action} ${amount}`);
@@ -50,7 +50,7 @@ test("turn response echoes match and turn, omits amount for HOLD, stable idempot
   assert.equal(r.matchId, envelope.matchId);
   assert.equal(r.turn, 3);
   assert.deepEqual(r.action, { type: "EXTRACT", amount: 10 });
-  assert.equal(r.policyProof.circuitVersion, "v1-draft");
+  assert.equal(r.policyProof.circuitVersion, "v1");
   assert.match(r.policyProof.publicInputsHash, /^0x[0-9a-f]{64}$/);
   assert.equal(r.idempotencyKey, idempotencyKey(envelope.matchId, 3));
   assert.match(r.idempotencyKey, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);

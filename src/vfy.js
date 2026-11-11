@@ -17,7 +17,8 @@ export const POLICY = {
 };
 
 export const ACTION_CODE = { HOLD: 0n, FORTIFY: 1n, EXTRACT: 2n };
-export const CIRCUIT_VERSION_CODE = { "v1-draft": 1n };
+// The platform renamed "v1-draft" to "v1" (same circuit, same code 1).
+export const CIRCUIT_VERSION_CODE = { "v1-draft": 1n, v1: 1n };
 
 const toBig = (v) => {
   if (typeof v === "bigint") return v;
@@ -77,11 +78,12 @@ export function idempotencyKey(matchId, turn) {
   return `${s.slice(0, 8)}-${s.slice(8, 12)}-${s.slice(12, 16)}-${s.slice(16, 20)}-${s.slice(20, 32)}`;
 }
 
-/** @param registeredCommitment used when the envelope omits strategyCommitment (practice turns do) */
-export function buildTurnResponse(env, now = new Date(), registeredCommitment) {
+/**
+ * @param registeredCommitment used when the envelope omits strategyCommitment (practice turns do)
+ * @param circuitVersion must equal the circuit version registered with the commitment, or the turn is rejected
+ */
+export function buildTurnResponse(env, now = new Date(), registeredCommitment, circuitVersion = "v1") {
   const action = chooseAction(env.state);
-  const circuitVersion = env.resolverVersion && CIRCUIT_VERSION_CODE[env.resolverVersion] !== undefined
-    ? env.resolverVersion : "v1-draft";
   const policyProof = { circuitVersion };
   const commitment = env.strategyCommitment?.hash ?? registeredCommitment;
   if (commitment) {
