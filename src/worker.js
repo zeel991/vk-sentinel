@@ -151,6 +151,11 @@ export default {
     }
     if (request.method === "POST" && url.pathname === "/prover/register") return handleRegister(request, env);
     if (request.method === "GET" && url.pathname === "/prover/selftest") return handleSelftest(request, env);
+    // An unsigned GET/HEAD on the agent path answers 200 so a plain reachability probe never
+    // reads as "down"; only signed POSTs do any work.
+    if ((request.method === "GET" || request.method === "HEAD") && url.pathname === (env.AGENT_PATH ?? "/agent")) {
+      return Response.json({ ok: true, protocolVersion: "v1" });
+    }
     if (request.method !== "POST" || url.pathname !== (env.AGENT_PATH ?? "/agent")) {
       return new Response(null, { status: 404 });
     }
