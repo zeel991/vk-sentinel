@@ -47,6 +47,7 @@ test("strategy: extract the cap whenever the opponent has anything, hold at zero
 
 test("turn response echoes match and turn, omits amount for HOLD, stable idempotency key", () => {
   const r = buildTurnResponse(envelope, new Date("2026-10-23T13:00:01Z"));
+  assert.equal(r.protocolVersion, "v1");
   assert.equal(r.matchId, envelope.matchId);
   assert.equal(r.turn, 3);
   assert.deepEqual(r.action, { type: "EXTRACT", amount: 10 });

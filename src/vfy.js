@@ -96,6 +96,8 @@ export function buildTurnResponse(env, now = new Date(), registeredCommitment, c
   // The Groth16 proof and public_signals go here once the platform publishes
   // the policy circuit (.wasm/.zkey); see src/prover.js.
   return {
+    // Not in the build guide's example, but carried by replies the platform accepted in scored matches.
+    protocolVersion: "v1",
     matchId: env.matchId,
     turn: env.turn,
     // amount must be omitted for HOLD/FORTIFY, not sent as 0
