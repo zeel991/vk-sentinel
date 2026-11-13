@@ -18,5 +18,10 @@ database_id = "0ff89ed0-83d4-4c31-9444-b9ad2f0dac38"
 # retried and then scored as a timeout. The build guide's examples use "v1" (v1 -> 1), so replies send "v1".
 CIRCUIT_VERSION = "v1"
 STRATEGY_COMMITMENT = "0x22493306606ed696f1f1a4945e514b1245312964990f2a557c948c5b49ba850c"
+# Gatekeeper taskId public-input encoding: a name from prover/maps/gatekeeper.mjs TASK_ID_ENCODINGS, or
+# "rotate" = one candidate per scored task from src/worker.js TASK_ID_ROTATION, counting scored answers since
+# TASK_ID_ROTATION_SINCE. Once a task verifies, set its encoding here.
+TASKID_ENCODING = "rotate"
+TASK_ID_ROTATION_SINCE = "2026-11-14T00:00:00Z"
 # Fixed serverless prover (prover-vercel/). Unset to fall back to a self-registered tunnel.
 PROVER_URL = "https://vk-sentinel-prover.vercel.app/api"

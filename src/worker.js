@@ -72,6 +72,20 @@ async function send(env, status, obj) {
   });
 }
 
+// The platform's task_id -> field encoding is unpublished and practice does not check proofs, so
+// TASKID_ENCODING = "rotate" (wrangler.toml) tries one candidate per scored task; the public agent
+// page's PROOFS VERIFIED count shows which task, and so which encoding, verified. Untried first:
+// keccakModP failed on 2 scored tasks (13 Nov 18:43, 20:00), uuidTail on 6 (before curve was added).
+export const TASK_ID_ROTATION = ["keccakShr8", "utf8BigEndian", "hexDigits", "uuidTail", "keccakModP"];
+
+async function pickTaskIdEncoding(env, scope) {
+  if (env.TASKID_ENCODING !== "rotate") return env.TASKID_ENCODING || "keccakModP";
+  if (scope !== "competition") return TASK_ID_ROTATION[0];
+  const n = await env.DB.prepare("SELECT count(*) AS n FROM answers WHERE mode = 'competition' AND answered_at >= ?")
+    .bind(env.TASK_ID_ROTATION_SINCE ?? "2026-11-14T00:00:00Z").first("n").catch(() => 0);
+  return TASK_ID_ROTATION[Number(n) % TASK_ID_ROTATION.length];
+}
+
 async function handleGatekeeper(env, task, colo) {
   const db = env.DB;
   const taskId = String(task.task_id ?? "");
@@ -102,8 +116,9 @@ async function handleGatekeeper(env, task, colo) {
   // Proving runs on the remote prover (the free plan's 10 ms CPU can't); waiting on fetch costs no CPU.
   // Replays carry no proof to submit, and the circuit has no notion of reuse, so skip them.
   let zk = null;
+  const taskIdEncoding = await pickTaskIdEncoding(env, scope);
   if (verdict.reason_code !== "PROOF_REPLAY" && verdict.reason_code !== "MISSING_VERIFICATION") {
-    zk = await requestProof(env, "gatekeeper", { input, taskId, decision: verdict.decision },
+    zk = await requestProof(env, "gatekeeper", { input, taskId, decision: verdict.decision, taskIdEncoding },
       budget(task.deadline_at, 5_000, 40_000), { allowAlternate: true });
     if (zk?.alternate) {
       // The platform's circuit only proves the decision its rules allow; it is the referee.
@@ -124,7 +139,7 @@ async function handleGatekeeper(env, task, colo) {
   t.push(Date.now());
   // Per-stage milliseconds: retry lookup, replay claim, prove (incl. tunnel), save; prover_internal is the prover's own time.
   const ms = t.slice(1).map((x, i) => x - t[i]);
-  console.log(JSON.stringify({ task_id: taskId, mode: task.mode, ...verdict, colo, ms: { lookup: ms[0], claim: ms[1], prove: ms[2], save: ms[3], prover_internal: zk?.ms ?? null } }));
+  console.log(JSON.stringify({ task_id: taskId, mode: task.mode, ...verdict, taskIdEncoding, colo, ms: { lookup: ms[0], claim: ms[1], prove: ms[2], save: ms[3], prover_internal: zk?.ms ?? null } }));
   return response;
 }
 
