@@ -61,7 +61,8 @@ export async function requestProof(env, circuit, payload, budgetMs, { allowAlter
     if (!sameHex(r.headers.get("x-prover-signature") ?? "", await hmacHex(env.PROVER_TOKEN, raw))) return null;
     const out = JSON.parse(new TextDecoder().decode(raw));
     if (!r.ok || !out.proof) { console.warn("prover error", r.status, out.error); return null; }
-    return { proof: out.proof, public_signals: out.public_signals, verified: out.verified, alternate: Boolean(out.alternate), ms: out.ms };
+    // snarkjs proofs carry curve: "bn128"; rapidsnark output does not. Add it for both games.
+    return { proof: out.proof && { ...out.proof, curve: out.proof.curve ?? "bn128" }, public_signals: out.public_signals, verified: out.verified, alternate: Boolean(out.alternate), ms: out.ms };
   } catch (err) {
     console.warn("prover unreachable:", err?.name ?? err);
     return null;

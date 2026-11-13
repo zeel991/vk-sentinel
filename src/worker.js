@@ -137,8 +137,7 @@ async function handleVfyTurn(env, turnEnv) {
 
   const response = buildTurnResponse(turnEnv, new Date(), env.STRATEGY_COMMITMENT, env.CIRCUIT_VERSION);
   const zk = await requestProof(env, "steal-the-vfy", { turn: turnEnv, action: response.action, publicInputsHash: response.policyProof.publicInputsHash }, budget(turnEnv.deadlineAt, 4_000, 20_000));
-  // snarkjs proofs carry curve: "bn128"; replies that won scored matches include it, ours did not.
-  if (zk) { response.policyProof.proof = { ...zk.proof, curve: zk.proof.curve ?? "bn128" }; response.policyProof.public_signals = zk.public_signals; }
+  if (zk) { response.policyProof.proof = zk.proof; response.policyProof.public_signals = zk.public_signals; }
   await db.prepare("INSERT OR IGNORE INTO vfy_turns (match_id, turn, mode, request, response, answered_at) VALUES (?, ?, ?, ?, ?, ?)")
     .bind(matchId, turn, String(turnEnv.mode ?? ""), JSON.stringify(turnEnv), JSON.stringify(response), new Date().toISOString()).run();
   console.log(JSON.stringify({ event: "steal-the-vfy", matchId, turn, mode: turnEnv.mode, state: turnEnv.state, action: response.action }));
