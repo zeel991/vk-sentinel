@@ -68,11 +68,11 @@ export function publicInputsHash({ commitment, matchId, turn, selfBalance, oppon
 
 /**
  * Deterministic per-turn key: retries of the same turn reuse it, different turns never do.
- * Shaped as a valid RFC 4122 v4 UUID (version nibble 4, variant 10xx) so strict validators accept it.
+ * Shaped as an RFC 4122 v5 UUID (version nibble 5, variant 10xx), the shape replies that won scored matches used.
  */
 export function idempotencyKey(matchId, turn) {
   const h = keccak_256(new TextEncoder().encode(`steal-the-vfy:${matchId}:${turn}`));
-  h[6] = (h[6] & 0x0f) | 0x40;
+  h[6] = (h[6] & 0x0f) | 0x50;
   h[8] = (h[8] & 0x3f) | 0x80;
   const s = [...h.slice(0, 16)].map((b) => b.toString(16).padStart(2, "0")).join("");
   return `${s.slice(0, 8)}-${s.slice(8, 12)}-${s.slice(12, 16)}-${s.slice(16, 20)}-${s.slice(20, 32)}`;

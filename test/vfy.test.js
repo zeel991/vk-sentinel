@@ -54,7 +54,7 @@ test("turn response echoes match and turn, omits amount for HOLD, stable idempot
   assert.equal(r.policyProof.circuitVersion, "v1");
   assert.match(r.policyProof.publicInputsHash, /^0x[0-9a-f]{64}$/);
   assert.equal(r.idempotencyKey, idempotencyKey(envelope.matchId, 3));
-  assert.match(r.idempotencyKey, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  assert.match(r.idempotencyKey, /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
   assert.notEqual(idempotencyKey(envelope.matchId, 3), idempotencyKey(envelope.matchId, 4));
 
   const hold = buildTurnResponse({ ...envelope, state: { ...envelope.state, opponentBalance: "0" } });
