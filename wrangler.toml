@@ -13,8 +13,10 @@ database_id = "0ff89ed0-83d4-4c31-9444-b9ad2f0dac38"
 
 [vars]
 # Poseidon(strategyParams, salt) registered on the dashboard (scripts/vfy-commit.mjs). Practice turns omit it from the envelope.
-# Circuit version exactly as the platform stores it with the commitment (it records "v1-draft" even when "v1" is entered); replies must use the same string.
-CIRCUIT_VERSION = "v1-draft"
+# Circuit version sent in turn replies. The dashboard stores the commitment as "v1-draft" even when "v1" is
+# entered, and practice accepted "v1-draft", but every scored turn of the 13 Nov match sent with "v1-draft" was
+# retried and then scored as a timeout. The build guide's examples use "v1" (v1 -> 1), so replies send "v1".
+CIRCUIT_VERSION = "v1"
 STRATEGY_COMMITMENT = "0x22493306606ed696f1f1a4945e514b1245312964990f2a557c948c5b49ba850c"
 # Fixed serverless prover (prover-vercel/). Unset to fall back to a self-registered tunnel.
 PROVER_URL = "https://vk-sentinel-prover.vercel.app/api"
