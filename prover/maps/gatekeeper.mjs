@@ -1,17 +1,18 @@
 // Gatekeeper circuit (GatekeeperEvaluation) input mapping.
 // Inputs recovered from gatekeeper.wasm; the circuit only proves the decision its
 // own rules allow, so the proof doubles as a check on the agent's decision.
-import { createHash, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
+import sha3 from "js-sha3";
+const { keccak256 } = sha3;
 
 const P = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
 const field = (v) => (BigInt(v) % P).toString();
 
-// Task ids look like "<prefix>_<uuid>": the uuid's 128 bits fit the field directly.
-// Anything else falls back to sha256 reduced into the field.
+// The platform's task_id -> field mapping is unpublished. The UUID-tail mapping we used never
+// verified (0/6 scored proofs on 13 Nov), while pecker's keccak256(utf8 task_id) mod p proof
+// verified on the same task, so use that.
 export function taskIdField(taskId) {
-  const tail = String(taskId).slice(-36).replace(/-/g, "");
-  if (/^[0-9a-f]{32}$/i.test(tail)) return BigInt("0x" + tail).toString();
-  return (BigInt("0x" + createHash("sha256").update(String(taskId)).digest("hex")) % P).toString();
+  return (BigInt("0x" + keccak256(String(taskId))) % P).toString();
 }
 
 export default ({ input, taskId, decision }) => ({
