@@ -66,7 +66,9 @@ async function send(env, status, obj) {
   const body = enc.encode(JSON.stringify(obj));
   return new Response(body, {
     status,
-    headers: { "content-type": "application/json", "x-agent-games-signature": await sign(env.AGENT_GAMES_HMAC_SECRET, body) },
+    // no-transform stops Cloudflare from brotli-compressing replies into chunked bodies without
+    // Content-Length; the platform reported timeouts on everything but the (uncompressed) preflight.
+    headers: { "content-type": "application/json", "cache-control": "no-store, no-transform", "x-agent-games-signature": await sign(env.AGENT_GAMES_HMAC_SECRET, body) },
   });
 }
 
