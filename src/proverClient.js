@@ -119,5 +119,5 @@ export async function handleSelftest(request, env) {
     public_signals: result?.public_signals ?? null,
     prove_ms: result?.ms ?? null,
     round_trip_ms: Date.now() - t0,
-  });
+  }, { headers: { "cache-control": "no-store, no-transform" } }); // same delivery as /agent replies
 }
