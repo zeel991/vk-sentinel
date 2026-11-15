@@ -74,11 +74,12 @@ async function send(env, status, obj) {
 
 // The platform's task_id -> field encoding is unpublished and practice does not check proofs, so
 // TASKID_ENCODING = "rotate" (wrangler.toml) tries one candidate per scored task; the public agent
-// page's PROOFS VERIFIED count shows which task, and so which encoding, verified. Round 01 results
-// (13 Nov, 0 verified each, encodings from their public repos): keccakModP failed for us (2 tasks),
-// Broken-Bones (8) and NESTIC-1 (7); utf8BigEndian for ZeroDoubt (8); uuidTail for us (6, before
-// proofs carried curve). keccakShr8 and hexDigits are untested, so they go first.
-export const TASK_ID_ROTATION = ["keccakShr8", "hexDigits", "utf8BigEndian", "uuidTail"];
+// page's PROOFS VERIFIED count shows which task, and so which encoding, verified.
+// Evidence so far (all 9 of our scored proofs verify locally against the official zkey, so a public
+// signal must be what the platform rejects): uuidTail failed 6x in R01 but only BEFORE proofs carried
+// curve "bn128" (confounded), keccakModP failed 2x (1 APPROVE), keccakShr8 failed 1x in R03 (APPROVE).
+// uuidTail matches the platform's ids (task_R03_<uuid>) and is untested with curve, so it goes first.
+export const TASK_ID_ROTATION = ["uuidTail", "keccakModP", "hexDigits", "utf8BigEndian", "keccakShr8"];
 
 async function pickTaskIdEncoding(env, scope) {
   if (env.TASKID_ENCODING !== "rotate") return env.TASKID_ENCODING || "keccakModP";

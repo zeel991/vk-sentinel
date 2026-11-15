@@ -22,6 +22,6 @@ STRATEGY_COMMITMENT = "0x22493306606ed696f1f1a4945e514b1245312964990f2a557c948c5
 # "rotate" = one candidate per scored task from src/worker.js TASK_ID_ROTATION, counting scored answers since
 # TASK_ID_ROTATION_SINCE. Once a task verifies, set its encoding here.
 TASKID_ENCODING = "rotate"
-TASK_ID_ROTATION_SINCE = "2026-11-14T00:00:00Z"
+TASK_ID_ROTATION_SINCE = "2026-11-15T11:30:00Z"
 # Fixed serverless prover (prover-vercel/). Unset to fall back to a self-registered tunnel.
 PROVER_URL = "https://vk-sentinel-prover.vercel.app/api"
