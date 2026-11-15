@@ -79,7 +79,9 @@ async function send(env, status, obj) {
 // signal must be what the platform rejects): uuidTail failed 6x in R01 but only BEFORE proofs carried
 // curve "bn128" (confounded), keccakModP failed 2x (1 APPROVE), keccakShr8 failed 1x in R03 (APPROVE).
 // uuidTail matches the platform's ids (task_R03_<uuid>) and is untested with curve, so it goes first.
-export const TASK_ID_ROTATION = ["uuidTail", "keccakModP", "hexDigits", "utf8BigEndian", "keccakShr8"];
+// Other agents' R01 results also rule out keccakModP (Broken-Bones 8, NESTIC-1 7) and utf8BigEndian
+// (ZeroDoubt 8), so the only other untested candidate, hexDigits, is second.
+export const TASK_ID_ROTATION = ["uuidTail", "hexDigits", "keccakModP", "utf8BigEndian", "keccakShr8"];
 
 async function pickTaskIdEncoding(env, scope) {
   if (env.TASKID_ENCODING !== "rotate") return env.TASKID_ENCODING || "keccakModP";
