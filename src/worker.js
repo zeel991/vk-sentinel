@@ -4,6 +4,7 @@
 import { decide } from "./decide.js";
 import { buildTurnResponse, isVfyTurn } from "./vfy.js";
 import { handleRegister, handleSelftest, proverStatus, requestProof } from "./proverClient.js";
+import { shouldProve, applyAlternate } from "./proofPolicy.js";
 
 const DEADLINE_GRACE_MS = 2 * 60_000; // past the stated deadline
 const MAX_AGE_MS = 15 * 60_000;       // since issued, for envelopes without a deadline (preflight)
@@ -119,18 +120,16 @@ async function handleGatekeeper(env, task, colo) {
   t.push(Date.now());
   let verdict = decide(input, () => owner !== taskId);
   // Proving runs on the remote prover (the free plan's 10 ms CPU can't); waiting on fetch costs no CPU.
-  // Replays carry no proof to submit, and the circuit has no notion of reuse, so skip them.
+  // Every answer with a proof_tx carries a proof, replays included (see proofPolicy.js).
   let zk = null;
   const taskIdEncoding = await pickTaskIdEncoding(env, scope);
-  if (verdict.reason_code !== "PROOF_REPLAY" && verdict.reason_code !== "MISSING_VERIFICATION") {
+  if (shouldProve(verdict)) {
     zk = await requestProof(env, "gatekeeper", { input, taskId, decision: verdict.decision, taskIdEncoding },
       budget(task.deadline_at, 5_000, 40_000), { allowAlternate: true });
-    if (zk?.alternate) {
-      // The platform's circuit only proves the decision its rules allow; it is the referee.
-      const flipped = verdict.decision === "APPROVE" ? "REJECT" : "APPROVE";
-      console.warn(JSON.stringify({ task_id: taskId, circuit_overrode: verdict, to: flipped }));
-      verdict = { decision: flipped, reason_code: flipped === "APPROVE" ? "VALID_PROOF" : "PUBLIC_INPUT_MISMATCH" };
-    }
+    // The platform's circuit only proves the decision its rules allow; it is the referee, except on reuse.
+    const next = applyAlternate(verdict, zk);
+    if (next !== verdict) console.warn(JSON.stringify({ task_id: taskId, circuit_overrode: verdict, to: next.decision }));
+    verdict = next;
   }
   t.push(Date.now());
   const response = { decision: verdict.decision, reason_code: verdict.reason_code };
