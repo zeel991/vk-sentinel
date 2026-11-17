@@ -120,7 +120,7 @@ async function handleGatekeeper(env, task, colo) {
   t.push(Date.now());
   let verdict = decide(input, () => owner !== taskId);
   // Proving runs on the remote prover (the free plan's 10 ms CPU can't); waiting on fetch costs no CPU.
-  // Every answer with a proof_tx carries a proof, replays included (see proofPolicy.js).
+  // Replays and missing proof_tx carry no proof (see proofPolicy.js).
   let zk = null;
   const taskIdEncoding = await pickTaskIdEncoding(env, scope);
   if (shouldProve(verdict)) {

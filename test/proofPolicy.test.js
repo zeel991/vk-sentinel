@@ -4,8 +4,8 @@ import { shouldProve, applyAlternate } from "../src/proofPolicy.js";
 
 const replay = { decision: "REJECT", reason_code: "PROOF_REPLAY" };
 
-test("replays are proved, missing verification is not", () => {
-  assert.equal(shouldProve(replay), true);
+test("replays and missing verification are not proved", () => {
+  assert.equal(shouldProve(replay), false);
   assert.equal(shouldProve({ decision: "APPROVE", reason_code: "VALID_PROOF" }), true);
   assert.equal(shouldProve({ decision: "REJECT", reason_code: "VK_SUBSTITUTION" }), true);
   assert.equal(shouldProve({ decision: "REJECT", reason_code: "MISSING_VERIFICATION" }), false);

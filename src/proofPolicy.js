@@ -1,15 +1,15 @@
 // Which answers get a Groth16 proof attached, and what the circuit's answer may change.
 //
-// Replays are proved too (2026-11-17). The circuit has no notion of reuse, so for a replayed
-// proof_tx it proves the decision its rules allow (usually APPROVE) as an "alternate". We attach
-// that proof but keep our REJECT / PROOF_REPLAY decision. Other agents that send a proof with
-// their replay answer are counted as answered and correct (R04: Astrex-1 and Bnova 8/8/8/7),
-// while our proof-less replay answer was not counted at all (8/7/7/7).
+// Replays carry no proof: the circuit has no notion of reuse, so it cannot prove REJECT /
+// PROOF_REPLAY for a proof that is otherwise valid. Staff confirmed (ticket #4153, 2026-11-17)
+// that the uncounted R04 replay was a platform bug, not our answer format; they neutralise it
+// and re-run that task on 21 Nov. (A 16:20 IST change that attached an alternate proof to
+// replays was reverted the same evening.)
 export function shouldProve(verdict) {
-  return verdict.reason_code !== "MISSING_VERIFICATION"; // nothing to prove without a proof_tx
+  return verdict.reason_code !== "PROOF_REPLAY" && verdict.reason_code !== "MISSING_VERIFICATION";
 }
 
-/** Apply the circuit's alternate decision, except for replays, which the circuit cannot see. */
+/** Apply the circuit's alternate decision. Replays are never proved, so never flipped. */
 export function applyAlternate(verdict, zk) {
   if (!zk?.alternate || verdict.reason_code === "PROOF_REPLAY") return verdict;
   const flipped = verdict.decision === "APPROVE" ? "REJECT" : "APPROVE";
